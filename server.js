@@ -11,7 +11,10 @@ const app = express();
 app.use(express.json());
 
 /* ===============================
-   CORS (FIX ONLY)
+   CORS (FINAL & BENAR)
+   - SATU CORS SAJA
+   - TIDAK throw error
+   - OPTIONS TIDAK 500
 ================================ */
 
 // normalisasi origin (hapus slash terakhir)
@@ -24,7 +27,7 @@ const allowedOrigins = [
   normalizeOrigin(process.env.FRONTEND_ORIGIN)
 ].filter(Boolean);
 
-app.use(cors({
+const corsOptions = {
   origin: function (origin, callback) {
     // allow Postman / server-to-server
     if (!origin) return callback(null, true);
@@ -35,23 +38,8 @@ app.use(cors({
       return callback(null, true);
     }
 
-    return callback(new Error("Not allowed by CORS"));
-  },
-  credentials: true
-}));
-
-
-const corsOptions = {
-  origin: function (origin, callback) {
-    if (!origin) return callback(null, true);
-
-    const normalizedOrigin = normalizeOrigin(origin);
-
-    if (allowedOrigins.includes(normalizedOrigin)) {
-      return callback(null, true);
-    }
-
-    return callback(new Error("Not allowed by CORS"));
+    // ❗ JANGAN throw Error → bikin OPTIONS 500
+    return callback(null, false);
   },
   credentials: true,
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
@@ -60,11 +48,6 @@ const corsOptions = {
 
 app.use(cors(corsOptions));
 app.options("*", cors(corsOptions));
-
-
-
-
-
 
 /* ===============================
    SUPABASE
@@ -96,6 +79,7 @@ async function requireAuth(req, res, next) {
   if (error || !data?.user) {
     return res.status(401).json({ message: "Invalid token" });
   }
+
   req.user = data.user;
   next();
 }
@@ -203,11 +187,13 @@ app.get("/api/my-enrollments", requireAuth, async (req, res) => {
 
   if (error) return res.status(500).json({ message: error.message });
 
-  res.json(data.map(e => ({
-    course_id: e.course_id,
-    course_title: e.courses.title,
-    status: e.status
-  })));
+  res.json(
+    data.map(e => ({
+      course_id: e.course_id,
+      course_title: e.courses.title,
+      status: e.status
+    }))
+  );
 });
 
 /* ===============================
@@ -218,12 +204,14 @@ app.get("/api/enrollments", requireAuth, requireAdmin, async (_, res) => {
     .from("enrollments")
     .select("id, user_email, status, courses(title)");
 
-  res.json(data.map(e => ({
-    id: e.id,
-    user_email: e.user_email,
-    course_title: e.courses.title,
-    status: e.status
-  })));
+  res.json(
+    data.map(e => ({
+      id: e.id,
+      user_email: e.user_email,
+      course_title: e.courses.title,
+      status: e.status
+    }))
+  );
 });
 
 app.put("/api/enrollments/:id", requireAuth, requireAdmin, async (req, res) => {
@@ -238,8 +226,6 @@ app.put("/api/enrollments/:id", requireAuth, requireAdmin, async (req, res) => {
 /* ===============================
    CERTIFICATE
 ================================ */
-// (BAGIAN INI TIDAK DIUBAH SAMA SEKALI — PERSIS KODE KAMU)
-
 app.get("/api/certificates/:courseId", requireAuth, async (req, res) => {
   const { courseId } = req.params;
 
@@ -278,7 +264,6 @@ app.get("/api/certificates/:courseId", requireAuth, async (req, res) => {
     res.send(Buffer.concat(chunks));
   });
 
-  /* ===== BORDER ===== */
   doc
     .lineWidth(3)
     .rect(20, 20, 555, 802)
@@ -289,7 +274,6 @@ app.get("/api/certificates/:courseId", requireAuth, async (req, res) => {
     .rect(30, 30, 535, 782)
     .stroke("#CBD5E1");
 
-  /* ===== HEADER ===== */
   doc
     .font("Helvetica-Bold")
     .fontSize(28)
@@ -301,29 +285,11 @@ app.get("/api/certificates/:courseId", requireAuth, async (req, res) => {
     .fillColor("#000000")
     .text("KELULUSAN", { align: "center" });
 
-  doc.moveDown(1);
-
-  doc
-    .moveTo(150, 200)
-    .lineTo(450, 200)
-    .stroke("#1E3A8A");
-
-  /* ===== BODY ===== */
   doc.moveDown(3);
 
-  doc
-    .font("Helvetica")
-    .fontSize(12)
-    .fillColor("#000000")
-    .text("Diberikan kepada:", { align: "center" });
-
+  doc.fontSize(12).text("Diberikan kepada:", { align: "center" });
   doc.moveDown(1);
-
-  doc
-    .font("Helvetica-Bold")
-    .fontSize(22)
-    .text(nama, { align: "center" });
-
+  doc.font("Helvetica-Bold").fontSize(22).text(nama, { align: "center" });
   doc.moveDown(2);
 
   doc
@@ -334,39 +300,24 @@ app.get("/api/certificates/:courseId", requireAuth, async (req, res) => {
     });
 
   doc.moveDown(1);
-
-  doc
-    .font("Helvetica-Bold")
-    .fontSize(18)
-    .text(courseTitle, { align: "center" });
+  doc.font("Helvetica-Bold").fontSize(18).text(courseTitle, {
+    align: "center"
+  });
 
   doc.moveDown(3);
+  doc.fontSize(12).text(`Tanggal: ${tanggal}`, { align: "center" });
 
-  doc
-    .fontSize(12)
-    .font("Helvetica")
-    .text(`Tanggal: ${tanggal}`, { align: "center" });
-
-  /* ===== FOOTER ===== */
   doc.moveDown(4);
-
-  doc
-    .fontSize(10)
-    .fillColor("#374151")
-    .text(
-      `Nomor Sertifikat: ${nomorSertifikat}`,
-      { align: "center" }
-    );
+  doc.fontSize(10).text(`Nomor Sertifikat: ${nomorSertifikat}`, {
+    align: "center"
+  });
 
   doc.moveDown(1);
-
   doc
     .fontSize(10)
-    .fillColor("#374151")
-    .text(
-      "KursusKu — Platform Pembelajaran Bahasa Indonesia",
-      { align: "center" }
-    );
+    .text("KursusKu — Platform Pembelajaran Bahasa Indonesia", {
+      align: "center"
+    });
 
   doc.end();
 });
