@@ -9,7 +9,36 @@ dotenv.config();
 
 const app = express();
 app.use(express.json());
-app.use(cors({ origin: process.env.FRONTEND_ORIGIN || "*", credentials: true }));
+
+/* ===============================
+   CORS (FIX ONLY)
+================================ */
+
+// normalisasi origin (hapus slash terakhir)
+function normalizeOrigin(origin) {
+  if (!origin) return origin;
+  return origin.endsWith("/") ? origin.slice(0, -1) : origin;
+}
+
+const allowedOrigins = [
+  normalizeOrigin(process.env.FRONTEND_ORIGIN)
+].filter(Boolean);
+
+app.use(cors({
+  origin: function (origin, callback) {
+    // allow Postman / server-to-server
+    if (!origin) return callback(null, true);
+
+    const normalizedOrigin = normalizeOrigin(origin);
+
+    if (allowedOrigins.includes(normalizedOrigin)) {
+      return callback(null, true);
+    }
+
+    return callback(new Error("Not allowed by CORS"));
+  },
+  credentials: true
+}));
 
 /* ===============================
    SUPABASE
@@ -181,8 +210,10 @@ app.put("/api/enrollments/:id", requireAuth, requireAdmin, async (req, res) => {
 });
 
 /* ===============================
-   CERTIFICATE (PRO DESIGN)
+   CERTIFICATE
 ================================ */
+// (BAGIAN INI TIDAK DIUBAH SAMA SEKALI — PERSIS KODE KAMU)
+
 app.get("/api/certificates/:courseId", requireAuth, async (req, res) => {
   const { courseId } = req.params;
 
@@ -313,10 +344,6 @@ app.get("/api/certificates/:courseId", requireAuth, async (req, res) => {
 
   doc.end();
 });
-
-
-
-
 
 /* ===============================
    START SERVER
