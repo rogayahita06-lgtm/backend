@@ -11,43 +11,17 @@ const app = express();
 app.use(express.json());
 
 /* ===============================
-   CORS (FINAL & BENAR)
-   - SATU CORS SAJA
-   - TIDAK throw error
-   - OPTIONS TIDAK 500
+   CORS (FINAL, SIMPLE, STABIL)
 ================================ */
-
-// normalisasi origin (hapus slash terakhir)
-function normalizeOrigin(origin) {
-  if (!origin) return origin;
-  return origin.endsWith("/") ? origin.slice(0, -1) : origin;
-}
-
-const allowedOrigins = [
-  normalizeOrigin(process.env.FRONTEND_ORIGIN)
-].filter(Boolean);
-
-const corsOptions = {
-  origin: function (origin, callback) {
-    // allow Postman / server-to-server
-    if (!origin) return callback(null, true);
-
-    const normalizedOrigin = normalizeOrigin(origin);
-
-    if (allowedOrigins.includes(normalizedOrigin)) {
-      return callback(null, true);
-    }
-
-    // ❗ JANGAN throw Error → bikin OPTIONS 500
-    return callback(null, false);
-  },
+app.use(cors({
+  origin: process.env.FRONTEND_ORIGIN.replace(/\/$/, ""),
   credentials: true,
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"]
-};
+}));
 
-app.use(cors(corsOptions));
-app.options("*", cors(corsOptions));
+// preflight handler
+app.options("*", cors());
 
 /* ===============================
    SUPABASE
@@ -98,7 +72,9 @@ function requireAdmin(req, res, next) {
 /* ===============================
    HEALTH
 ================================ */
-app.get("/", (_, res) => res.send("API KursusKu berjalan ✅"));
+app.get("/", (_, res) => {
+  res.send("API KursusKu berjalan ✅");
+});
 
 /* ===============================
    COURSES
@@ -290,14 +266,12 @@ app.get("/api/certificates/:courseId", requireAuth, async (req, res) => {
   doc.fontSize(12).text("Diberikan kepada:", { align: "center" });
   doc.moveDown(1);
   doc.font("Helvetica-Bold").fontSize(22).text(nama, { align: "center" });
-  doc.moveDown(2);
 
-  doc
-    .font("Helvetica")
-    .fontSize(12)
-    .text("Atas keberhasilannya menyelesaikan kursus:", {
-      align: "center"
-    });
+  doc.moveDown(2);
+  doc.fontSize(12).text(
+    "Atas keberhasilannya menyelesaikan kursus:",
+    { align: "center" }
+  );
 
   doc.moveDown(1);
   doc.font("Helvetica-Bold").fontSize(18).text(courseTitle, {
@@ -313,11 +287,10 @@ app.get("/api/certificates/:courseId", requireAuth, async (req, res) => {
   });
 
   doc.moveDown(1);
-  doc
-    .fontSize(10)
-    .text("KursusKu — Platform Pembelajaran Bahasa Indonesia", {
-      align: "center"
-    });
+  doc.fontSize(10).text(
+    "KursusKu — Platform Pembelajaran Bahasa Indonesia",
+    { align: "center" }
+  );
 
   doc.end();
 });
@@ -325,6 +298,6 @@ app.get("/api/certificates/:courseId", requireAuth, async (req, res) => {
 /* ===============================
    START SERVER
 ================================ */
-app.listen(process.env.PORT || 3000, () =>
-  console.log("✅ Server running")
-);
+app.listen(process.env.PORT || 3000, () => {
+  console.log("✅ Server running");
+});
